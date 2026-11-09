@@ -27,7 +27,7 @@
       resolve = channel: meta:
         if channel == "beta" && meta.beta != null then meta.beta else meta.stable;
 
-      channelSet = channel:
+      channelSet = pkgs: channel:
         let
           entries = lib.filterAttrs (_: e: e != null) (lib.mapAttrs (_: resolve channel) metas);
           scope = lib.makeScope pkgs.newScope (s: lib.mapAttrs
@@ -41,9 +41,9 @@
         in
         lib.getAttrs (builtins.attrNames entries) scope;
 
-      stable = channelSet "stable";
-      beta = lib.mapAttrs' (n: v: lib.nameValuePair "${n}-beta" v) (channelSet "beta");
-      all = stable // beta;
+      stable = channelSet pkgs "stable";
+      betaSet = channelSet pkgs "beta";
+      all = stable // lib.mapAttrs' (n: v: lib.nameValuePair "${n}-beta" v) betaSet;
 
       sylvarisSrc = fetch metas.sylvaris metas.sylvaris.stable;
     in {
@@ -51,8 +51,8 @@
       checks.${system} = all;
 
       overlays = {
-        default = _: _: stable;
-        beta = _: _: beta;
+        default = final: _: channelSet final "stable";
+        beta = final: _: channelSet final "beta";
       };
 
       nixosModules = rec {

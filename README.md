@@ -22,7 +22,7 @@ Try a package without a flake input:
 nix profile install github:fatumorg/Frepo#sylvaris
 ```
 
-Use it as a flake input, with every `-beta` variant next to the stable package:
+Use it as a flake input:
 
 ```nix
 {
@@ -34,13 +34,20 @@ Use it as a flake input, with every `-beta` variant next to the stable package:
 }
 ```
 
-Then pick packages from `inputs.frepo.packages.${system}`, or add an overlay:
+Then pick packages from `inputs.frepo.packages.${system}`, where every `-beta` variant sits next to the stable package, or add an overlay. Pick one overlay, never both.
+
+`overlays.default` gives the stable builds:
 
 ```nix
 nixpkgs.overlays = [ inputs.frepo.overlays.default ];
+```
+
+`overlays.beta` gives the beta builds under the same names, so `pkgs.sylvaris` is the beta Sylvaris:
+
+```nix
 nixpkgs.overlays = [ inputs.frepo.overlays.beta ];
 ```
 
-`overlays.default` adds the stable packages and `overlays.beta` adds the `-beta` ones. Sylvaris also ships `nixosModules.sylvaris` and `homeManagerModules.sylvaris`.
+Sylvaris also ships `nixosModules.sylvaris` and `homeManagerModules.sylvaris`.
 
 ## Unavailable
