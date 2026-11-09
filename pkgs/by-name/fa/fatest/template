@@ -1,0 +1,19 @@
+pkgname=fatest
+version=@pkgver@
+revision=1
+build_style=python3-pep517
+hostmakedepends="python3-setuptools"
+depends="python3-rich speedtest-cli python3-psutil"
+short_desc="A fast, clean terminal speedtest tool"
+maintainer="@maintainer@"
+license="MIT"
+homepage="https://github.com/naxce/fatest"
+distfiles="@url@"
+checksum=@sha256@
+wrksrc="@srcdir@"
+
+post_install() {
+	vlicense LICENSE
+	vinstall packaging/linux/fatest.desktop 644 usr/share/applications
+	vinstall assets/fatest-256.png 644 usr/share/icons/hicolor/256x256/apps fatest.png
+}

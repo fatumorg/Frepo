@@ -1,0 +1,14 @@
+Source: fatest
+Section: utils
+Priority: optional
+Maintainer: @maintainer@
+Build-Depends: debhelper-compat (= 13), dh-python, pybuild-plugin-pyproject, python3-all, python3-setuptools
+Standards-Version: 4.7.0
+Homepage: https://github.com/naxce/fatest
+Rules-Requires-Root: no
+
+Package: fatest
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}, python3-rich, speedtest-cli, python3-psutil
+Description: A fast, clean terminal speedtest tool
+ A fast, clean terminal speedtest tool.

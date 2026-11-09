@@ -1,0 +1,12 @@
+#!/usr/bin/make -f
+
+export PYBUILD_NAME=fatest
+export PYBUILD_DISABLE=test
+
+%:
+	dh $@ --buildsystem=pybuild
+
+override_dh_auto_install:
+	dh_auto_install
+	install -Dm644 packaging/linux/fatest.desktop debian/fatest/usr/share/applications/fatest.desktop
+	install -Dm644 assets/fatest-256.png debian/fatest/usr/share/icons/hicolor/256x256/apps/fatest.png

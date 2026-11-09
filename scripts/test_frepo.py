@@ -5,7 +5,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from frepo import TARGETS, apply_bump, artifact_key, bump, hash_path, parse_tag, resolve, target_version
+import re
+import shlex
+
+from frepo import TARGETS, apply_bump, artifact_key, bump, hash_path, matrix, parse_tag, render, resolve, target_version
 
 
 class Rules(unittest.TestCase):
@@ -104,6 +107,70 @@ class Bump(unittest.TestCase):
         data = json.loads(self.path("fatest").read_text())
         self.assertEqual(data["beta"]["version"], "2.2.0-beta1")
         self.assertEqual(data["stable"]["version"], "2.1.0")
+
+
+class Render(unittest.TestCase):
+    def test_render_replaces_all_placeholders(self):
+        for target in TARGETS:
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as tmp:
+                render("fatest", "stable", target, Path(tmp))
+                for f in Path(tmp).rglob("*"):
+                    if f.is_file():
+                        self.assertIsNone(re.search(r"@[a-z0-9]+@", f.read_text()), f)
+                env = dict(shlex.split(l)[0].split("=", 1) for l in (Path(tmp) / "frepo.env").read_text().splitlines())
+                self.assertRegex(env["KEY"], r"^fatest-2\.1\.0-[0-9a-f]{8}$")
+                self.assertEqual(env["PKG"], "fatest")
+                self.assertEqual(env["TARGET"], target)
+                self.assertEqual(env["SMOKE"], "fatest --version")
+                self.assertEqual(env["URL"], "https://github.com/fatumorg/FaTest/archive/refs/tags/v2.1.0.tar.gz")
+                self.assertRegex(env["SHA256"], r"^[0-9a-f]{64}$")
+
+    def test_render_recipe_files(self):
+        expected = {"arch": "PKGBUILD", "void": "template", "fedora": "fatest.spec", "debian": "debian/control", "ubuntu": "debian/control"}
+        for target, name in expected.items():
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as tmp:
+                render("fatest", "stable", target, Path(tmp))
+                self.assertTrue((Path(tmp) / name).is_file())
+
+
+class Matrix(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.write("alpha", {"repo": "o/Alpha", "smoke": "a", "stable": entry("1.0.0"), "beta": None})
+        self.write("bravo", {"repo": "o/Bravo", "smoke": "b", "skip": ["debian"], "stable": entry("1.0.0"), "beta": entry("1.1.0-beta1")})
+
+    def write(self, name, data):
+        d = self.root / "pkgs" / "by-name" / name[:2] / name
+        d.mkdir(parents=True)
+        (d / "version.json").write_text(json.dumps(data))
+        for recipe in ("PKGBUILD", "template", name + ".spec", "debian"):
+            (d / recipe).write_text("")
+
+    def test_matrix_leaves_out_packages_without_recipes(self):
+        self.write("charlie", {"repo": "o/Charlie", "smoke": "c", "stable": entry("1.0.0"), "beta": None})
+        for f in (self.root / "pkgs" / "by-name" / "ch" / "charlie").glob("*"):
+            if f.name != "version.json":
+                f.unlink()
+        self.assertNotIn("charlie", {r["pkg"] for r in matrix(self.root)["include"]})
+
+    def test_matrix_skips_and_dedupes(self):
+        rows = matrix(self.root)["include"]
+        alpha = [r for r in rows if r["pkg"] == "alpha"]
+        self.assertEqual(sorted(r["target"] for r in alpha), sorted(TARGETS))
+        bravo = [r for r in rows if r["pkg"] == "bravo"]
+        self.assertNotIn("debian", {r["target"] for r in bravo})
+        self.assertEqual(len(bravo), 2 * 4)
+        self.assertEqual(len({(r["key"], r["target"]) for r in rows}), len(rows))
+        self.assertEqual({r["image"] for r in alpha if r["target"] == "fedora"}, {"fedora:45"})
+
+    def test_matrix_missing_uses_injected_lookup(self):
+        have = {"alpha-1.0.0-s": ["arch--alpha.pkg.tar.zst", "void--alpha.xbps"]}
+        rows = matrix(self.root, missing=True, assets=lambda key: have.get(key, []))["include"]
+        alpha = {r["target"] for r in rows if r["pkg"] == "alpha"}
+        self.assertEqual(alpha, {"debian", "ubuntu", "fedora"})
+        self.assertEqual(len([r for r in rows if r["pkg"] == "bravo"]), 8)
 
 
 def run(*cmd):

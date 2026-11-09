@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+
+export PYBUILD_NAME=tempinfocli
+export PYBUILD_DISABLE=test
+
+%:
+	dh $@ --buildsystem=pybuild
+
+override_dh_auto_install:
+	dh_auto_install
+	install -Dm644 packaging/linux/tempinfo.desktop debian/tempinfocli/usr/share/applications/tempinfo.desktop
+	install -Dm644 assets/tempinfo.svg debian/tempinfocli/usr/share/icons/hicolor/scalable/apps/tempinfo.svg
+	for size in 16 32 48 64 128 256; do \
+		install -Dm644 assets/tempinfo-$$size.png debian/tempinfocli/usr/share/icons/hicolor/$${size}x$${size}/apps/tempinfo.png; \
+	done

@@ -1,0 +1,27 @@
+pkgname=tempinfocli
+pkgver=@pkgver@
+pkgrel=1
+pkgdesc="A live terminal temperature dashboard"
+arch=('any')
+url="https://github.com/fatumorg/TempInfoCLI"
+license=('MIT')
+depends=('python' 'python-rich' 'python-psutil' 'pciutils')
+makedepends=('python-build' 'python-installer' 'python-wheel' 'python-setuptools')
+source=("$pkgname-$pkgver.tar.gz::@url@")
+sha256sums=('@sha256@')
+
+build() {
+  cd "$srcdir/@srcdir@"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "$srcdir/@srcdir@"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 packaging/linux/tempinfo.desktop "$pkgdir/usr/share/applications/tempinfo.desktop"
+  install -Dm644 assets/tempinfo.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/tempinfo.svg"
+  for size in 16 32 48 64 128 256; do
+    install -Dm644 assets/tempinfo-$size.png "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/tempinfo.png"
+  done
+}

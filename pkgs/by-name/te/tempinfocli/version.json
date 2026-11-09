@@ -1,5 +1,5 @@
 {
-  "repo": "fatumorg/tempinfocli",
+  "repo": "fatumorg/TempInfoCLI",
   "smoke": "tempinfo --version",
   "stable": {
     "tag": "v0.3.0",

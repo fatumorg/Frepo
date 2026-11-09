@@ -1,0 +1,14 @@
+Source: tempinfocli
+Section: utils
+Priority: optional
+Maintainer: @maintainer@
+Build-Depends: debhelper-compat (= 13), dh-python, pybuild-plugin-pyproject, python3-all, python3-setuptools
+Standards-Version: 4.7.0
+Homepage: https://github.com/fatumorg/TempInfoCLI
+Rules-Requires-Root: no
+
+Package: tempinfocli
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}, python3-rich, python3-psutil, pciutils
+Description: A live terminal temperature dashboard
+ A live terminal temperature dashboard.

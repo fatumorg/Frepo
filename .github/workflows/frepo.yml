@@ -1,0 +1,133 @@
+name: frepo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pkgs/**"
+      - "scripts/**"
+      - "flake.*"
+      - ".github/**"
+  workflow_dispatch:
+
+concurrency:
+  group: frepo
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Run unittest suite
+        run: python3 -I -m unittest discover -s scripts
+
+  nix:
+    name: nix flake check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: Run flake check
+        run: nix flake check
+
+  plan:
+    name: plan builds
+    needs: [test, nix]
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      count: ${{ steps.matrix.outputs.count }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Compute missing build matrix
+        id: matrix
+        run: |
+          matrix=$(python3 -I scripts/frepo.py matrix --missing)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "count=$(echo "$matrix" | python3 -I -c 'import json,sys; print(len(json.load(sys.stdin)["include"]))')" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build ${{ matrix.pkg }} on ${{ matrix.target }}
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+      options: ${{ matrix.target == 'void' && '--privileged -v /dev:/dev' || '' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      PKG: ${{ matrix.pkg }}
+      CHANNEL: ${{ matrix.channel }}
+      TARGET: ${{ matrix.target }}
+    steps:
+      - name: Install bootstrap tools
+        run: |
+          case "$TARGET" in
+            arch) pacman -Syu --noconfirm python git tar ;;
+            debian | ubuntu) apt-get update && apt-get install -y --no-install-recommends python3 git tar ca-certificates ;;
+            fedora) dnf -y install python3 git tar ;;
+            void) xbps-install -Syu xbps; xbps-install -yu; xbps-install -y bash python3 git tar ;;
+          esac
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Render recipe
+        run: python3 -I scripts/frepo.py render "$PKG" "$CHANNEL" "$TARGET" out
+      - name: Build native package
+        run: bash scripts/build.sh out
+      - name: Smoke test installed package
+        run: bash scripts/smoke.sh out
+      - name: Upload built packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}-${{ matrix.key }}
+          path: out/dist/*
+          if-no-files-found: error
+
+  release:
+    name: publish release assets
+    needs: [plan, build]
+    if: ${{ !cancelled() && needs.plan.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download built packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: artifacts
+      - name: Create releases and upload assets
+        run: |
+          shopt -s nullglob
+          for dir in artifacts/dist-*/; do
+            name=$(basename "$dir")
+            rest=${name#dist-}
+            target=${rest%%-*}
+            key=${rest#*-}
+            gh release view "$key" >/dev/null 2>&1 || gh release create "$key" --prerelease --title "$key" --notes "$key"
+            stage=$(mktemp -d)
+            for f in "$dir"*; do
+              cp "$f" "$stage/$target--$(basename "$f")"
+            done
+            gh release upload "$key" "$stage"/* --clobber
+          done

@@ -4,12 +4,25 @@ import hashlib
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import urllib.request
+from email.utils import formatdate
 from pathlib import Path
 
 TARGETS = ("arch", "debian", "ubuntu", "fedora", "void")
 BASE_URL = os.environ.get("FREPO_BASE_URL", "https://fatumorg.github.io/Frepo")
+
+MAINTAINER = "naxce <naxcehelltea@gmail.com>"
+IMAGES = {
+    "arch": "archlinux:latest",
+    "debian": "debian:trixie",
+    "ubuntu": "ubuntu:26.04",
+    "fedora": "fedora:45",
+    "void": "ghcr.io/void-linux/void-glibc-full:latest",
+}
+RECIPES = {"arch": "PKGBUILD", "void": "template", "fedora": "{pkg}.spec", "debian": "debian", "ubuntu": "debian"}
 
 ROOT = Path(__file__).resolve().parent.parent
 TAG_RE = re.compile(r"v(\d+\.\d+\.\d+)(?:-beta([1-9]\d*))?")
@@ -127,15 +140,100 @@ def bump(name, tag, fetch=fetch_source, root=ROOT):
     return list(out)
 
 
+def render(name, channel, target, outdir, root=ROOT):
+    pkgdir = package_dirs(root)[name]
+    data = json.loads((pkgdir / "version.json").read_text())
+    ent = resolve(data, channel)
+    if not ent:
+        raise SystemExit(f"{name} has no {channel} release")
+    tag = ent["tag"]
+    repo = data["repo"]
+    url = f"https://github.com/{repo}/archive/refs/tags/{tag}.tar.gz"
+    subs = {
+        "@pkgver@": target_version(ent["version"], target),
+        "@url@": url,
+        "@sha256@": ent["sha256"],
+        "@srcdir@": f"{repo.split('/')[1]}-{tag[1:]}",
+        "@maintainer@": MAINTAINER,
+        "@date@": formatdate().replace("-0000", "+0000"),
+    }
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    recipe = RECIPES[target].format(pkg=name)
+    src = pkgdir / recipe
+    dst = outdir / recipe
+    if src.is_dir():
+        shutil.copytree(src, dst, dirs_exist_ok=True)
+        files = [f for f in dst.rglob("*") if f.is_file()]
+    else:
+        shutil.copy2(src, dst)
+        files = [dst]
+    for f in files:
+        text = f.read_text()
+        for k, v in subs.items():
+            text = text.replace(k, v)
+        f.write_text(text)
+    env = {
+        "PKG": name,
+        "TARGET": target,
+        "KEY": artifact_key(name, ent),
+        "URL": url,
+        "SHA256": ent["sha256"],
+        "SMOKE": data["smoke"],
+    }
+    (outdir / "frepo.env").write_text("".join(f"{k}={shlex.quote(v)}\n" for k, v in env.items()))
+    return env
+
+
+def release_assets(key):
+    out = subprocess.run(["gh", "release", "view", key, "--json", "assets"], capture_output=True, text=True)
+    if out.returncode != 0:
+        if "not found" in out.stderr.lower():
+            return []
+        raise SystemExit(f"gh release view {key} failed: {out.stderr.strip()}")
+    return [a["name"] for a in json.loads(out.stdout)["assets"]]
+
+
+def matrix(root=ROOT, missing=False, assets=release_assets):
+    rows = {}
+    for name, d in package_dirs(root).items():
+        data = json.loads((d / "version.json").read_text())
+        for channel in ("stable", "beta"):
+            ent = resolve(data, channel)
+            if not ent:
+                continue
+            key = artifact_key(name, ent)
+            for target in TARGETS:
+                if target in data.get("skip", []) or not (d / RECIPES[target].format(pkg=name)).exists():
+                    continue
+                rows.setdefault((key, target), {"pkg": name, "channel": channel, "target": target, "key": key, "image": IMAGES[target]})
+    out = list(rows.values())
+    if missing:
+        cache = {}
+        out = [r for r in out if not any(a.startswith(r["target"] + "--") for a in cache.setdefault(r["key"], assets(r["key"])))]
+    return {"include": out}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="frepo")
     sub = parser.add_subparsers(dest="command")
     b = sub.add_parser("bump")
     b.add_argument("package")
     b.add_argument("tag")
+    r = sub.add_parser("render")
+    r.add_argument("package")
+    r.add_argument("channel", choices=("stable", "beta"))
+    r.add_argument("target", choices=TARGETS)
+    r.add_argument("outdir")
+    m = sub.add_parser("matrix")
+    m.add_argument("--missing", action="store_true")
     args = parser.parse_args(argv)
     if args.command == "bump":
         print("\n".join(bump(args.package, args.tag)))
+    elif args.command == "render":
+        render(args.package, args.channel, args.target, args.outdir)
+    elif args.command == "matrix":
+        print(json.dumps(matrix(missing=args.missing)))
     else:
         parser.print_help()
     return 0
