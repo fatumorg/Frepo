@@ -1,0 +1,11 @@
+{
+  "repo": "fatumorg/tempinfocli",
+  "smoke": "tempinfo --version",
+  "stable": {
+    "tag": "v0.3.0",
+    "version": "0.3.0",
+    "hash": "sha256-d9UopRRXcwAikRr29uEPIZY5zlLRc50aNwRDnxMDHuY=",
+    "sha256": "49cb74c8e758e2165a12128f8f8097870ded6ae54b24d316e07b664d8e2c78c6"
+  },
+  "beta": null
+}

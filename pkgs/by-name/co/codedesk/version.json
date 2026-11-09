@@ -1,0 +1,6 @@
+{
+  "repo": "fatumorg/codedesk",
+  "smoke": "ldd /usr/bin/codedesk",
+  "stable": null,
+  "beta": null
+}

@@ -1,0 +1,6 @@
+{
+  "repo": "fatumorg/FaTest",
+  "smoke": "fatest --version",
+  "stable": null,
+  "beta": null
+}
