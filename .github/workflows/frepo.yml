@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Run unittest suite
         run: python3 -I -m unittest discover -s scripts
 
@@ -33,6 +35,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
@@ -54,6 +58,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Compute missing build matrix
         id: matrix
         run: |
@@ -80,13 +86,26 @@ jobs:
       - name: Install bootstrap tools
         run: |
           case "$TARGET" in
-            arch) pacman -Syu --noconfirm python git tar ;;
-            debian | ubuntu) apt-get update && apt-get install -y --no-install-recommends python3 git tar ca-certificates ;;
-            fedora) dnf -y install python3 git tar ;;
-            void) xbps-install -Syu xbps; xbps-install -yu; xbps-install -y bash python3 git tar ;;
+            arch)
+              pacman -Syu --noconfirm python git tar curl
+              ;;
+            debian | ubuntu)
+              apt-get update
+              apt-get install -y --no-install-recommends python3 git tar ca-certificates curl
+              ;;
+            fedora)
+              dnf -y install python3 git tar curl
+              ;;
+            void)
+              xbps-install -Syu xbps
+              xbps-install -yu
+              xbps-install -y bash python3 git tar curl
+              ;;
           esac
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Render recipe
         run: python3 -I scripts/frepo.py render "$PKG" "$CHANNEL" "$TARGET" out
       - name: Build native package
@@ -97,7 +116,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.target }}-${{ matrix.key }}
-          path: out/dist/*
+          path: |
+            out/dist/*.pkg.tar.zst
+            out/dist/*.deb
+            out/dist/*.rpm
+            out/dist/*.xbps
           if-no-files-found: error
 
   release:
@@ -126,7 +149,7 @@ jobs:
             key=${rest#*-}
             gh release view "$key" >/dev/null 2>&1 || gh release create "$key" --prerelease --title "$key" --notes "$key"
             stage=$(mktemp -d)
-            for f in "$dir"*; do
+            for f in "$dir"*.pkg.tar.zst "$dir"*.deb "$dir"*.rpm "$dir"*.xbps; do
               cp "$f" "$stage/$target--$(basename "$f")"
             done
             gh release upload "$key" "$stage"/* --clobber

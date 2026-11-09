@@ -7,18 +7,7 @@ out=$(cd "$1" && pwd)
 export PACKAGER="naxce <naxcehelltea@gmail.com>"
 export DEBIAN_FRONTEND=noninteractive
 
-install_curl() {
-    command -v curl >/dev/null && return 0
-    case "$TARGET" in
-        arch) pacman -Sy --noconfirm curl ;;
-        debian | ubuntu) apt-get update && apt-get install -y --no-install-recommends ca-certificates curl ;;
-        fedora) dnf -y install curl ;;
-        void) xbps-install -Syu xbps && xbps-install -yu && xbps-install -y curl ;;
-    esac
-}
-
 fetch_source() {
-    install_curl
     tarball="$out/$(basename "$URL")"
     curl -fsSL -o "$tarball" "$URL"
     got=$(sha256sum "$tarball" | cut -d' ' -f1)
@@ -37,7 +26,8 @@ build_arch() {
     mkdir -p "$work"
     cp "$out/PKGBUILD" "$work/"
     chown -R builder: "$work"
-    (cd "$work" && sudo -u builder env PACKAGER="$PACKAGER" makepkg -s --noconfirm)
+    cd "$work"
+    sudo -u builder env PACKAGER="$PACKAGER" makepkg -s --noconfirm
     cp "$work"/*.pkg.tar.zst "$out/dist/"
 }
 
@@ -62,7 +52,9 @@ build_fedora() {
     dnf -y builddep "${defs[@]}" "$out/$PKG.spec"
     for _ in 1 2 3 4 5; do
         rm -f "$top"/SRPMS/*.buildreqs.nosrc.rpm
-        rpmbuild -bb "${defs[@]}" "$out/$PKG.spec" && break
+        if rpmbuild -bb "${defs[@]}" "$out/$PKG.spec"; then
+            break
+        fi
         dnf -y builddep "$top"/SRPMS/*.buildreqs.nosrc.rpm
     done
     test -n "$(find "$top/RPMS" -name '*.rpm')"
@@ -70,7 +62,8 @@ build_fedora() {
 }
 
 build_void() {
-    xbps-install -Syu xbps && xbps-install -yu
+    xbps-install -Syu xbps
+    xbps-install -yu
     xbps-install -y bash curl git sudo
     id builder >/dev/null 2>&1 || useradd -G xbuilder -m builder
     work=/home/builder/void-packages
