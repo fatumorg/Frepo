@@ -1,6 +1,11 @@
 {
   "repo": "fatumorg/FaTest",
   "smoke": "fatest --version",
-  "stable": null,
+  "stable": {
+    "tag": "v2.1.0",
+    "version": "2.1.0",
+    "hash": "sha256-IwoA8gL4JebaMb0uftKhFcZUxYdO4W+PKI8a0e2pMD8=",
+    "sha256": "01aa433fe1eeb0c42116874203dd461a68e6563dce0c1a1495fea6ba2a3ba959"
+  },
   "beta": null
 }
