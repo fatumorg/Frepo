@@ -2,10 +2,10 @@
   "repo": "fatumorg/codedesk",
   "smoke": "ldd /usr/bin/codedesk",
   "stable": {
-    "tag": "v0.2.1",
-    "version": "0.2.1",
-    "hash": "sha256-PhaQmhdBwlfeZk+JLk8XFcqBYxeCUdoV09/RTyPkSuk=",
-    "sha256": "fa562a57158bb9fcde7ae75c48c663c57dee86e455ad80217dc780748ac6a5e3"
+    "tag": "v0.2.2",
+    "version": "0.2.2",
+    "hash": "sha256-KcWjsSDyTPHFRs5EZLSvEY3qSBD83/r2yjjmlIc2RzY=",
+    "sha256": "94e2dae0c8855b12cc61b3348fc70a9243176933d7bf8fe793f0e4a5133046af"
   },
   "beta": null
 }
