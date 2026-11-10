@@ -17,8 +17,18 @@ fetch_source() {
     fi
 }
 
+fetch_deps() {
+    [ -n "$NEEDS" ] || return 0
+    mkdir -p "$out/deps"
+    if [ -z "$(ls -A "$out/deps")" ]; then
+        python3 -I "$(dirname "$0")/frepo.py" fetch-dep "$NEEDS" "$TARGET" "$out/deps"
+    fi
+}
+
 build_arch() {
     pacman -Syu --noconfirm base-devel git sudo
+    fetch_deps
+    if [ -n "$NEEDS" ]; then pacman -U --noconfirm "$out"/deps/*.pkg.tar.zst; fi
     id builder >/dev/null 2>&1 || useradd -m builder
     echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
     work=/home/builder/build
@@ -34,6 +44,8 @@ build_arch() {
 build_deb() {
     apt-get update
     apt-get install -y --no-install-recommends build-essential dpkg-dev fakeroot
+    fetch_deps
+    if [ -n "$NEEDS" ]; then apt-get install -y "$out"/deps/*.deb; fi
     rm -rf "$out/src"
     mkdir -p "$out/src"
     tar -xzf "$tarball" -C "$out/src" --strip-components=1
@@ -46,6 +58,8 @@ build_deb() {
 
 build_fedora() {
     dnf -y install rpm-build 'dnf-command(builddep)'
+    fetch_deps
+    if [ -n "$NEEDS" ]; then dnf -y install "$out"/deps/*.rpm; fi
     top="$out/rpmbuild"
     defs=(--define "_topdir $top" --define "_sourcedir $out")
     mkdir -p "$top"
@@ -71,6 +85,12 @@ build_void() {
     sudo -u builder git clone --depth 1 https://github.com/void-linux/void-packages "$work"
     mkdir -p "$work/srcpkgs/$PKG"
     cp "$out/template" "$work/srcpkgs/$PKG/template"
+    if [ -n "$NEEDS" ]; then
+        fetch_deps
+        mkdir -p "$work/hostdir/binpkgs"
+        cp "$out"/deps/*.xbps "$work/hostdir/binpkgs/"
+        xbps-rindex -a "$work"/hostdir/binpkgs/*.xbps
+    fi
     chown -R builder: "$work"
     printf '%s\n' XBPS_CHROOT_CMD=uchroot >> "$work/etc/conf"
     cd "$work"

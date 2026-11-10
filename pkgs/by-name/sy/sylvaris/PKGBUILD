@@ -1,0 +1,52 @@
+pkgname=sylvaris
+pkgver=@pkgver@
+pkgrel=1
+pkgdesc="Modular desktop shell for Hyprland, niri and sway, built on SylStack"
+arch=('any')
+url="https://github.com/fatumorg/Sylvaris"
+license=('MIT')
+depends=('sylstack' 'qt6-declarative' 'qt6-wayland' 'qt6-svg' 'qt6-multimedia' 'qt6-imageformats' 'layer-shell-qt' 'polkit-qt6' 'syntax-highlighting' 'inter-font' 'ttf-jetbrains-mono-nerd' 'bash' 'coreutils' 'procps-ng' 'util-linux')
+optdepends=(
+  'ttf-ibm-plex: the Classic and Paper styles'
+  'pipewire: audio, media, equalizer, UI sounds and Diver alarm sounds'
+  'libpulse: pactl for volume, output switching and recordings with sound'
+  'python: helpers for AirPods, Diver, SylFiles and SylTop'
+  'python-cryptography: AirPods and Diver helpers'
+  'python-gobject: "Show in folder" from other apps'
+  'libnotify: notifications from capture, Diver and settings'
+  'networkmanager: Wi-Fi and hotspot in SylCenter'
+  'wlr-randr: display layouts'
+  'wayvnc: virtual displays for a tablet'
+  'openssl: virtual displays for a tablet'
+  'iproute2: virtual displays for a tablet'
+  'brightnessctl: brightness of built-in screens'
+  'ddcutil: brightness of external monitors'
+  'wlsunset: night light'
+  'curl: weather'
+  'wl-clipboard: clipboard history and copying screenshots'
+  'grim: screenshots'
+  'slurp: choosing an area or window to capture'
+  'wf-recorder: screen recording'
+  'ffmpeg: recordings that upload everywhere'
+  'udisks2: mounting drives in SylFiles'
+  'libarchive: SylArchive'
+  'wtype: replying from SylIsland'
+  'glib2: locking when logind asks (gdbus)'
+  'git: installing plugins from git'
+  'cava: visualizer widget'
+)
+backup=('etc/pam.d/sylvaris')
+source=("Sylvaris-$pkgver.tar.gz::@url@")
+sha256sums=('@sha256@')
+
+package() {
+  cd "$srcdir/@srcdir@"
+  install -Dm755 bin/sylvaris "$pkgdir/usr/bin/sylvaris"
+  install -d "$pkgdir/usr/share/sylvaris"
+  cp -r shell/. "$pkgdir/usr/share/sylvaris/"
+  printf '%s\n' "$pkgver" > "$pkgdir/usr/share/sylvaris/COMMIT"
+  install -Dm644 -t "$pkgdir/usr/share/applications" share/applications/*.desktop
+  install -Dm644 -t "$pkgdir/usr/share/icons/hicolor/scalable/apps" share/icons/hicolor/scalable/apps/*.svg
+  install -Dm644 dist/pam/sylvaris "$pkgdir/etc/pam.d/sylvaris"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

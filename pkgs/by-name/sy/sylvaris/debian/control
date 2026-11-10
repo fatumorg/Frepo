@@ -1,0 +1,16 @@
+Source: sylvaris
+Section: x11
+Priority: optional
+Maintainer: @maintainer@
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.0
+Homepage: https://github.com/fatumorg/Sylvaris
+Rules-Requires-Root: no
+
+Package: sylvaris
+Architecture: all
+Depends: ${misc:Depends}, sylstack, qml6-module-qtquick, qml6-module-qtquick-shapes, qml6-module-qtquick-effects, qml6-module-qt-labs-folderlistmodel, qml6-module-qtquick-window, qml6-module-qtqml-models, qml6-module-qtmultimedia, qml6-module-org-kde-syntaxhighlighting, qt6-image-formats-plugins, qt6-svg-plugins, qt6-wayland, layer-shell-qt, fonts-inter, fonts-jetbrains-mono, bash, coreutils, procps, util-linux
+Recommends: pipewire-bin, pulseaudio-utils, python3, python3-cryptography, python3-gi, libnotify-bin, network-manager, wlr-randr, wayvnc, openssl, iproute2, brightnessctl, ddcutil, wlsunset, curl, wl-clipboard, grim, slurp, wf-recorder, ffmpeg, libarchive-tools, wtype, libglib2.0-bin, git, cava, udisks2
+Description: Modular desktop shell for Hyprland, niri and sway
+ Sylvaris is a modular desktop shell for Hyprland, niri and sway, built on
+ SylStack.

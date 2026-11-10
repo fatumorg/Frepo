@@ -1,5 +1,9 @@
 {
   "repo": "fatumorg/Sylvaris",
+  "needs": "sylstack",
+  "skip": [
+    "debian"
+  ],
   "smoke": "sylvaris --version",
   "stable": {
     "tag": "v1.6.0",

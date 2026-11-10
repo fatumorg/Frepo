@@ -1,0 +1,15 @@
+Source: sylstack
+Section: x11
+Priority: optional
+Maintainer: @maintainer@
+Build-Depends: debhelper-compat (= 13), cmake, ninja-build, pkg-config, g++, qt6-base-dev, qt6-base-private-dev, qt6-declarative-dev, qt6-declarative-dev-tools, qt6-svg-dev, qt6-wayland-dev, qt6-wayland-private-dev, liblayershellqtinterface-dev, libpolkit-qt6-1-dev, libpipewire-0.3-dev, libpam0g-dev, libaudit-dev, libwayland-dev, libwayland-bin
+Standards-Version: 4.7.0
+Homepage: https://github.com/fatumorg/Sylvaris
+Rules-Requires-Root: no
+
+Package: sylstack
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, qml6-module-qtquick, qt6-wayland, qt6-svg-plugins, layer-shell-qt
+Description: Small Qt Quick runtime for Wayland desktop shells
+ SylStack is a small Qt Quick runtime for Wayland desktop shells, made for
+ Sylvaris.

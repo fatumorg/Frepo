@@ -1,0 +1,28 @@
+pkgname=sylvaris
+version=@pkgver@
+revision=1
+archs=noarch
+depends="sylstack qt6-declarative qt6-wayland qt6-svg qt6-multimedia qt6-imageformats layer-shell-qt polkit-qt6 kf6-syntax-highlighting font-inter font-ibm-plex-ttf nerd-fonts-ttf bash coreutils procps-ng util-linux pipewire pulseaudio-utils python3 python3-cryptography python3-gobject libnotify NetworkManager wlr-randr wayvnc openssl iproute2 brightnessctl ddcutil wlsunset curl wl-clipboard grim slurp wf-recorder ffmpeg bsdtar wtype glib git cava udisks2"
+short_desc="Modular desktop shell for Hyprland, niri and sway"
+maintainer="@maintainer@"
+license="MIT"
+homepage="https://github.com/fatumorg/Sylvaris"
+distfiles="@url@"
+checksum=@sha256@
+wrksrc="@srcdir@"
+conf_files="/etc/pam.d/sylvaris"
+
+do_install() {
+	vbin bin/sylvaris
+	vmkdir usr/share/sylvaris
+	cp -r shell/. ${DESTDIR}/usr/share/sylvaris/
+	printf '%s\n' ${version} > ${DESTDIR}/usr/share/sylvaris/COMMIT
+	for f in share/applications/*.desktop; do
+		vinstall $f 644 usr/share/applications
+	done
+	for f in share/icons/hicolor/scalable/apps/*.svg; do
+		vinstall $f 644 usr/share/icons/hicolor/scalable/apps
+	done
+	vinstall dist/pam/sylvaris 644 etc/pam.d
+	vlicense LICENSE
+}

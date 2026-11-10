@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+
+include /usr/share/dpkg/pkg-info.mk
+
+%:
+	dh $@ --buildsystem=none
+
+override_dh_auto_install:
+	install -Dm755 bin/sylvaris debian/sylvaris/usr/bin/sylvaris
+	install -d debian/sylvaris/usr/share/sylvaris
+	cp -r shell/. debian/sylvaris/usr/share/sylvaris/
+	printf '%s\n' '$(DEB_VERSION_UPSTREAM)' > debian/sylvaris/usr/share/sylvaris/COMMIT
+	install -Dm644 -t debian/sylvaris/usr/share/applications share/applications/*.desktop
+	install -Dm644 -t debian/sylvaris/usr/share/icons/hicolor/scalable/apps share/icons/hicolor/scalable/apps/*.svg
+	install -Dm644 dist/pam/sylvaris debian/sylvaris/etc/pam.d/sylvaris

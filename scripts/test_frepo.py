@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import shlex
 
-from frepo import TARGETS, apply_bump, artifact_key, bump, hash_path, matrix, parse_tag, render, resolve, target_version
+from frepo import ROOT, TARGETS, apply_bump, artifact_key, bump, fetch_dep, hash_path, matrix, parse_tag, render, resolve, target_version
 
 
 class Rules(unittest.TestCase):
@@ -125,6 +125,17 @@ class Render(unittest.TestCase):
                 self.assertEqual(env["URL"], "https://github.com/fatumorg/FaTest/archive/refs/tags/v2.1.0.tar.gz")
                 self.assertRegex(env["SHA256"], r"^[0-9a-f]{64}$")
 
+    def test_render_needs_and_placeholders_for_stack(self):
+        for name, needs in (("sylstack", ""), ("sylvaris", "sylstack-1.0.1-7a0cfc8e")):
+            for target in ("arch", "ubuntu", "fedora", "void"):
+                with self.subTest(name=name, target=target), tempfile.TemporaryDirectory() as tmp:
+                    render(name, "stable", target, Path(tmp))
+                    for f in Path(tmp).rglob("*"):
+                        if f.is_file():
+                            self.assertIsNone(re.search(r"@[a-z0-9]+@", f.read_text()), f)
+                    env = dict(shlex.split(l)[0].split("=", 1) for l in (Path(tmp) / "frepo.env").read_text().splitlines())
+                    self.assertEqual(env["NEEDS"], needs)
+
     def test_render_recipe_files(self):
         expected = {"arch": "PKGBUILD", "void": "template", "fedora": "fatest.spec", "debian": "debian/control", "ubuntu": "debian/control"}
         for target, name in expected.items():
@@ -165,12 +176,53 @@ class Matrix(unittest.TestCase):
         self.assertEqual(len({(r["key"], r["target"]) for r in rows}), len(rows))
         self.assertEqual({r["image"] for r in alpha if r["target"] == "fedora"}, {"fedora:45"})
 
+    def test_matrix_orders_dependents_after_their_dependency(self):
+        self.write("delta", {"repo": "o/Delta", "smoke": "d", "needs": "bravo", "stable": entry("2.0.0"), "beta": None})
+        rows = matrix(self.root)["include"]
+        delta = {r["target"]: r["needs"] for r in rows if r["pkg"] == "delta"}
+        self.assertEqual(delta["arch"], artifact_key("bravo", entry("1.0.0")))
+        self.assertEqual(delta["debian"], "")
+        first = matrix(self.root, stage=0)["include"]
+        second = matrix(self.root, stage=1)["include"]
+        self.assertNotIn("delta", {r["pkg"] for r in first if r["target"] != "debian"})
+        self.assertEqual({r["pkg"] for r in second}, {"delta"})
+        self.assertEqual(len(first) + len(second), len(rows))
+        self.assertTrue(all(r["needs"] for r in second))
+
     def test_matrix_missing_uses_injected_lookup(self):
         have = {"alpha-1.0.0-s": ["arch--alpha.pkg.tar.zst", "void--alpha.xbps"]}
         rows = matrix(self.root, missing=True, assets=lambda key: have.get(key, []))["include"]
         alpha = {r["target"] for r in rows if r["pkg"] == "alpha"}
         self.assertEqual(alpha, {"debian", "ubuntu", "fedora"})
         self.assertEqual(len([r for r in rows if r["pkg"] == "bravo"]), 8)
+
+
+class Recipes(unittest.TestCase):
+    def test_recipes_have_no_comments(self):
+        for f in sorted((ROOT / "pkgs").rglob("*")):
+            if f.is_file() and f.name != "version.json":
+                for n, line in enumerate(f.read_text().splitlines(), 1):
+                    if re.match(r"\s*#", line) and not (n == 1 and line.startswith("#!")):
+                        self.fail(f"{f}:{n} has a comment")
+
+
+class FetchDep(unittest.TestCase):
+    def test_fetch_dep_downloads_only_matching_target_assets(self):
+        release = {"assets": [
+            {"name": "arch--sylstack-1.0.1-1-x86_64.pkg.tar.zst", "browser_download_url": "u1"},
+            {"name": "fedora--sylstack-1.0.1-1.x86_64.rpm", "browser_download_url": "u2"},
+        ]}
+        urls = []
+        with tempfile.TemporaryDirectory() as tmp:
+            saved = []
+            got = fetch_dep("k", "arch", Path(tmp) / "deps", "o/r", get=lambda u: urls.append(u) or release, save=lambda u, d: saved.append((u, d.name)))
+        self.assertEqual(urls, ["https://api.github.com/repos/o/r/releases/tags/k"])
+        self.assertEqual(saved, [("u1", "sylstack-1.0.1-1-x86_64.pkg.tar.zst")])
+        self.assertEqual(got, ["sylstack-1.0.1-1-x86_64.pkg.tar.zst"])
+
+    def test_fetch_dep_fails_without_asset(self):
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(SystemExit):
+            fetch_dep("k", "void", tmp, "o/r", get=lambda u: {"assets": []}, save=lambda u, d: None)
 
 
 def run(*cmd):

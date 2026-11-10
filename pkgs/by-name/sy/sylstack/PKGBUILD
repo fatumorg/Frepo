@@ -1,0 +1,22 @@
+pkgname=sylstack
+pkgver=@pkgver@
+pkgrel=1
+pkgdesc="Small Qt Quick runtime for Wayland desktop shells, made for Sylvaris"
+arch=('x86_64')
+url="https://github.com/fatumorg/Sylvaris"
+license=('MIT')
+options=('!debug')
+depends=('qt6-base' 'qt6-declarative' 'qt6-svg' 'qt6-wayland' 'layer-shell-qt' 'polkit-qt6' 'libpipewire' 'pam' 'wayland')
+makedepends=('cmake' 'ninja')
+source=("Sylvaris-$pkgver.tar.gz::@url@")
+sha256sums=('@sha256@')
+
+build() {
+  cmake -S "$srcdir/@srcdir@/stack" -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+  install -Dm644 "$srcdir/@srcdir@/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

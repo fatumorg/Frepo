@@ -1,0 +1,5 @@
+sylstack (@pkgver@-1) unstable; urgency=medium
+
+  * Package @pkgver@.
+
+ -- @maintainer@  @date@

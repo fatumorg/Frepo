@@ -51,3 +51,7 @@ nixpkgs.overlays = [ inputs.frepo.overlays.beta ];
 Sylvaris also ships `nixosModules.sylvaris` and `homeManagerModules.sylvaris`.
 
 ## Unavailable
+
+| Package | Target | Reason |
+|---|---|---|
+| sylvaris, sylstack | Debian 13 | Qt 6.9 required; use Nix |

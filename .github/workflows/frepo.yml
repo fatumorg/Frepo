@@ -50,8 +50,10 @@ jobs:
     needs: [test, nix]
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
-      count: ${{ steps.matrix.outputs.count }}
+      matrix0: ${{ steps.matrix.outputs.matrix0 }}
+      count0: ${{ steps.matrix.outputs.count0 }}
+      matrix1: ${{ steps.matrix.outputs.matrix1 }}
+      count1: ${{ steps.matrix.outputs.count1 }}
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
@@ -60,73 +62,35 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Compute missing build matrix
+      - name: Compute missing build matrices
         id: matrix
         run: |
-          matrix=$(python3 -I scripts/frepo.py matrix --missing)
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-          echo "count=$(echo "$matrix" | python3 -I -c 'import json,sys; print(len(json.load(sys.stdin)["include"]))')" >> "$GITHUB_OUTPUT"
+          for stage in 0 1; do
+            matrix=$(python3 -I scripts/frepo.py matrix --missing --stage "$stage")
+            echo "matrix$stage=$matrix" >> "$GITHUB_OUTPUT"
+            echo "count$stage=$(echo "$matrix" | python3 -I -c 'import json,sys; print(len(json.load(sys.stdin)["include"]))')" >> "$GITHUB_OUTPUT"
+          done
 
-  build:
-    name: build ${{ matrix.pkg }} on ${{ matrix.target }}
+  build-base:
+    name: build independent packages
     needs: plan
-    if: needs.plan.outputs.count != '0'
-    runs-on: ubuntu-latest
-    container:
-      image: ${{ matrix.image }}
-      options: ${{ matrix.target == 'void' && '--privileged -v /dev:/dev' || '' }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
-    env:
-      PKG: ${{ matrix.pkg }}
-      CHANNEL: ${{ matrix.channel }}
-      TARGET: ${{ matrix.target }}
-    steps:
-      - name: Install bootstrap tools
-        run: |
-          case "$TARGET" in
-            arch)
-              pacman -Syu --noconfirm python git tar curl
-              ;;
-            debian | ubuntu)
-              apt-get update
-              apt-get install -y --no-install-recommends python3 git tar ca-certificates curl
-              ;;
-            fedora)
-              dnf -y install python3 git tar curl
-              ;;
-            void)
-              xbps-install -Syu xbps
-              xbps-install -yu
-              xbps-install -y bash python3 git tar curl
-              ;;
-          esac
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Render recipe
-        run: python3 -I scripts/frepo.py render "$PKG" "$CHANNEL" "$TARGET" out
-      - name: Build native package
-        run: bash scripts/build.sh out
-      - name: Smoke test installed package
-        run: bash scripts/smoke.sh out
-      - name: Upload built packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-${{ matrix.target }}-${{ matrix.key }}
-          path: |
-            out/dist/*.pkg.tar.zst
-            out/dist/*.deb
-            out/dist/*.rpm
-            out/dist/*.xbps
-          if-no-files-found: error
+    if: needs.plan.outputs.count0 != '0'
+    uses: ./.github/workflows/build.yml
+    with:
+      matrix: ${{ needs.plan.outputs.matrix0 }}
+
+  build-dependent:
+    name: build dependent packages
+    needs: [plan, build-base]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.count1 != '0' }}
+    uses: ./.github/workflows/build.yml
+    with:
+      matrix: ${{ needs.plan.outputs.matrix1 }}
 
   release:
     name: publish release assets
-    needs: [plan, build]
-    if: ${{ !cancelled() && needs.plan.outputs.count != '0' }}
+    needs: [plan, build-base, build-dependent]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.plan.outputs.count0 != '0' || needs.plan.outputs.count1 != '0') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

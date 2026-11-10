@@ -8,6 +8,7 @@ repo="$out/repo"
 rm -rf "$repo"
 mkdir -p "$repo"
 cp "$dist"/* "$repo/"
+if [ -d "$out/deps" ]; then cp "$out"/deps/* "$repo/"; fi
 export DEBIAN_FRONTEND=noninteractive
 
 smoke_arch() {

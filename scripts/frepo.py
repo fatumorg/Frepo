@@ -140,8 +140,24 @@ def bump(name, tag, fetch=fetch_source, root=ROOT):
     return list(out)
 
 
+def buildable(pkgdir, data, name, target):
+    return target not in data.get("skip", []) and (pkgdir / RECIPES[target].format(pkg=name)).exists()
+
+
+def needs_key(dirs, data, channel, target):
+    dep = data.get("needs")
+    if not dep:
+        return ""
+    dep_data = json.loads((dirs[dep] / "version.json").read_text())
+    ent = resolve(dep_data, channel)
+    if not ent or not buildable(dirs[dep], dep_data, dep, target):
+        return ""
+    return artifact_key(dep, ent)
+
+
 def render(name, channel, target, outdir, root=ROOT):
-    pkgdir = package_dirs(root)[name]
+    dirs = package_dirs(root)
+    pkgdir = dirs[name]
     data = json.loads((pkgdir / "version.json").read_text())
     ent = resolve(data, channel)
     if not ent:
@@ -180,6 +196,7 @@ def render(name, channel, target, outdir, root=ROOT):
         "URL": url,
         "SHA256": ent["sha256"],
         "SMOKE": data["smoke"],
+        "NEEDS": needs_key(dirs, data, channel, target),
     }
     (outdir / "frepo.env").write_text("".join(f"{k}={shlex.quote(v)}\n" for k, v in env.items()))
     return env
@@ -194,9 +211,33 @@ def release_assets(key):
     return [a["name"] for a in json.loads(out.stdout)["assets"]]
 
 
-def matrix(root=ROOT, missing=False, assets=release_assets):
+def http_json(url):
+    with urllib.request.urlopen(url) as r:
+        return json.load(r)
+
+
+def http_save(url, dst):
+    with urllib.request.urlopen(url) as r, open(dst, "wb") as f:
+        shutil.copyfileobj(r, f)
+
+
+def fetch_dep(key, target, outdir, repo=None, get=http_json, save=http_save):
+    repo = repo or os.environ["GITHUB_REPOSITORY"]
+    prefix = target + "--"
+    found = [a for a in get(f"https://api.github.com/repos/{repo}/releases/tags/{key}")["assets"] if a["name"].startswith(prefix)]
+    if not found:
+        raise SystemExit(f"release {key} has no {target} asset")
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    for a in found:
+        save(a["browser_download_url"], outdir / a["name"][len(prefix):])
+    return [a["name"][len(prefix):] for a in found]
+
+
+def matrix(root=ROOT, missing=False, assets=release_assets, stage=None):
     rows = {}
-    for name, d in package_dirs(root).items():
+    dirs = package_dirs(root)
+    for name, d in dirs.items():
         data = json.loads((d / "version.json").read_text())
         for channel in ("stable", "beta"):
             ent = resolve(data, channel)
@@ -204,10 +245,13 @@ def matrix(root=ROOT, missing=False, assets=release_assets):
                 continue
             key = artifact_key(name, ent)
             for target in TARGETS:
-                if target in data.get("skip", []) or not (d / RECIPES[target].format(pkg=name)).exists():
+                if not buildable(d, data, name, target):
                     continue
-                rows.setdefault((key, target), {"pkg": name, "channel": channel, "target": target, "key": key, "image": IMAGES[target]})
+                needs = needs_key(dirs, data, channel, target)
+                rows.setdefault((key, target), {"pkg": name, "channel": channel, "target": target, "key": key, "needs": needs, "image": IMAGES[target]})
     out = list(rows.values())
+    if stage is not None:
+        out = [r for r in out if bool(r["needs"]) == bool(stage)]
     if missing:
         cache = {}
         out = [r for r in out if not any(a.startswith(r["target"] + "--") for a in cache.setdefault(r["key"], assets(r["key"])))]
@@ -227,13 +271,20 @@ def main(argv=None):
     r.add_argument("outdir")
     m = sub.add_parser("matrix")
     m.add_argument("--missing", action="store_true")
+    m.add_argument("--stage", type=int, choices=(0, 1))
+    f = sub.add_parser("fetch-dep")
+    f.add_argument("key")
+    f.add_argument("target", choices=TARGETS)
+    f.add_argument("outdir")
     args = parser.parse_args(argv)
     if args.command == "bump":
         print("\n".join(bump(args.package, args.tag)))
     elif args.command == "render":
         render(args.package, args.channel, args.target, args.outdir)
     elif args.command == "matrix":
-        print(json.dumps(matrix(missing=args.missing)))
+        print(json.dumps(matrix(missing=args.missing, stage=args.stage)))
+    elif args.command == "fetch-dep":
+        fetch_dep(args.key, args.target, args.outdir)
     else:
         parser.print_help()
     return 0

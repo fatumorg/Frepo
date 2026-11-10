@@ -1,0 +1,20 @@
+pkgname=sylstack
+version=@pkgver@
+revision=1
+build_style=cmake
+build_wrksrc=stack
+configure_args="-DCMAKE_BUILD_TYPE=Release"
+hostmakedepends="pkg-config qt6-base qt6-declarative-host-tools qt6-wayland-tools wayland-devel"
+makedepends="qt6-base-private-devel qt6-declarative-devel qt6-wayland-private-devel qt6-svg-devel layer-shell-qt-devel polkit-qt6-devel pipewire-devel pam-devel wayland-devel"
+depends="qt6-declarative qt6-wayland qt6-svg layer-shell-qt polkit-qt6"
+short_desc="Small Qt Quick runtime for Wayland desktop shells, made for Sylvaris"
+maintainer="@maintainer@"
+license="MIT"
+homepage="https://github.com/fatumorg/Sylvaris"
+distfiles="@url@"
+checksum=@sha256@
+wrksrc="@srcdir@"
+
+post_install() {
+	vlicense ${wrksrc}/LICENSE
+}

@@ -1,0 +1,74 @@
+name: build
+
+on:
+  workflow_call:
+    inputs:
+      matrix:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build ${{ matrix.pkg }} on ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+      options: ${{ matrix.target == 'void' && '--privileged -v /dev:/dev' || '' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    env:
+      PKG: ${{ matrix.pkg }}
+      CHANNEL: ${{ matrix.channel }}
+      TARGET: ${{ matrix.target }}
+    steps:
+      - name: Install bootstrap tools
+        run: |
+          case "$TARGET" in
+            arch)
+              pacman -Syu --noconfirm python git tar curl
+              ;;
+            debian | ubuntu)
+              apt-get update
+              apt-get install -y --no-install-recommends python3 git tar ca-certificates curl
+              ;;
+            fedora)
+              dnf -y install python3 git tar curl
+              ;;
+            void)
+              xbps-install -Syu xbps
+              xbps-install -yu
+              xbps-install -y bash python3 git tar curl
+              ;;
+          esac
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Render recipe
+        run: python3 -I scripts/frepo.py render "$PKG" "$CHANNEL" "$TARGET" out
+      - name: Fetch dependency built in this run
+        if: matrix.needs != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}-${{ matrix.needs }}
+          path: out/deps
+      - name: Build native package
+        run: bash scripts/build.sh out
+      - name: Smoke test installed package
+        run: bash scripts/smoke.sh out
+      - name: Upload built packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}-${{ matrix.key }}
+          path: |
+            out/dist/*.pkg.tar.zst
+            out/dist/*.deb
+            out/dist/*.rpm
+            out/dist/*.xbps
+          if-no-files-found: error
+
