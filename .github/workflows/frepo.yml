@@ -232,3 +232,60 @@ jobs:
       - name: Deploy to Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  verify:
+    name: verify ${{ matrix.target }} ${{ matrix.channel }}
+    needs: deploy
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [arch, debian, ubuntu, fedora, void]
+        channel: [stable, beta]
+        include:
+          - target: arch
+            image: archlinux:latest
+          - target: debian
+            image: debian:trixie
+          - target: ubuntu
+            image: ubuntu:26.04
+          - target: fedora
+            image: fedora:45
+          - target: void
+            image: ghcr.io/void-linux/void-glibc-full:latest
+    steps:
+      - name: Install bootstrap tools
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          case "$TARGET" in
+            arch)
+              pacman -Syu --noconfirm python git tar curl
+              pacman-key --init
+              pacman-key --populate archlinux
+              ;;
+            debian | ubuntu)
+              apt-get update
+              apt-get install -y --no-install-recommends python3 git tar ca-certificates curl
+              ;;
+            fedora)
+              dnf -y install python3 git tar curl
+              ;;
+            void)
+              xbps-install -Syu xbps
+              xbps-install -yu
+              xbps-install -y bash python3 git tar curl
+              ;;
+          esac
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install every package from the live repo
+        env:
+          TARGET: ${{ matrix.target }}
+          CHANNEL: ${{ matrix.channel }}
+        run: bash scripts/verify.sh "$TARGET" "$CHANNEL"

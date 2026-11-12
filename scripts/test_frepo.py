@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import shlex
 
-from frepo import ROOT, TARGETS, apply_bump, artifact_key, bump, fetch_dep, hash_path, matrix, parse_tag, render, resolve, select, site, target_version
+from frepo import ROOT, TARGETS, apply_bump, artifact_key, bump, fetch_dep, hash_path, matrix, parse_tag, readme_commands, render, resolve, select, site, smokes, target_version
 
 
 class Rules(unittest.TestCase):
@@ -256,6 +256,23 @@ class FetchDep(unittest.TestCase):
     def test_fetch_dep_fails_without_asset(self):
         with tempfile.TemporaryDirectory() as tmp, self.assertRaises(SystemExit):
             fetch_dep("k", "void", tmp, "o/r", get=lambda u: {"assets": []}, save=lambda u, d: None)
+
+
+class Readme(unittest.TestCase):
+    def test_readme_commands_present(self):
+        for target in TARGETS:
+            for channel in ("stable", "beta"):
+                with self.subTest(target=target, channel=channel):
+                    self.assertTrue(readme_commands(target, channel).strip())
+
+    def test_beta_blocks_use_beta_repo(self):
+        for target in TARGETS:
+            self.assertIn("beta", readme_commands(target, "beta"))
+            self.assertNotIn("beta", readme_commands(target, "stable"))
+
+    def test_smokes_skip_unbuildable(self):
+        self.assertNotIn("sylvaris", [n for n, _ in smokes("debian")])
+        self.assertIn("sylvaris", [n for n, _ in smokes("arch")])
 
 
 def run(*cmd):

@@ -282,6 +282,29 @@ def select(target, root=ROOT):
     return rows
 
 
+def readme_commands(target, channel="stable", text=None):
+    text = (ROOT / "README.md").read_text() if text is None else text
+    heading = {"stable": "Install", "beta": "Beta"}[channel]
+    section = re.search(rf"^## {heading}\n(.*?)(?=^## |\Z)", text, re.S | re.M)
+    if not section:
+        raise SystemExit(f"README has no {heading} section")
+    for part in re.split(r"^### ", section.group(1), flags=re.M):
+        if part.startswith(target.capitalize() + "\n"):
+            block = re.search(r"^```sh\n(.*?)^```", part, re.S | re.M)
+            if block:
+                return block.group(1)
+    raise SystemExit(f"README has no {target} block under {heading}")
+
+
+def smokes(target, root=ROOT):
+    rows = []
+    for name, d in package_dirs(root).items():
+        data = json.loads((d / "version.json").read_text())
+        if buildable(d, data, name, target):
+            rows.append((name, data["smoke"]))
+    return rows
+
+
 def snippets(base):
     codename = "$(. /etc/os-release; echo $VERSION_CODENAME)"
     out = []
@@ -391,6 +414,11 @@ def main(argv=None):
     f.add_argument("outdir")
     sl = sub.add_parser("select")
     sl.add_argument("target", choices=TARGETS)
+    rc = sub.add_parser("readme-commands")
+    rc.add_argument("target", choices=TARGETS)
+    rc.add_argument("channel", nargs="?", choices=("stable", "beta"), default="stable")
+    sm = sub.add_parser("smokes")
+    sm.add_argument("target", choices=TARGETS)
     st = sub.add_parser("site")
     st.add_argument("sitedir")
     args = parser.parse_args(argv)
@@ -404,6 +432,10 @@ def main(argv=None):
         fetch_dep(args.key, args.target, args.outdir)
     elif args.command == "select":
         print("\n".join(f"{c} {k}" for c, k in select(args.target)))
+    elif args.command == "readme-commands":
+        print(readme_commands(args.target, args.channel), end="")
+    elif args.command == "smokes":
+        print("\n".join(f"{n}\t{s}" for n, s in smokes(args.target)))
     elif args.command == "site":
         site(args.sitedir)
     else:
