@@ -123,3 +123,111 @@ jobs:
             done
             gh release upload "$key" "$stage"/* --clobber
           done
+
+  index:
+    name: index ${{ matrix.target }}
+    needs: [nix, plan, build-base, build-dependent, release]
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: arch
+            image: archlinux:latest
+          - target: debian
+            image: debian:trixie
+          - target: ubuntu
+            image: ubuntu:26.04
+          - target: fedora
+            image: fedora:45
+          - target: void
+            image: ghcr.io/void-linux/void-glibc-full:latest
+    steps:
+      - name: Install bootstrap tools
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          case "$TARGET" in
+            arch)
+              pacman -Syu --noconfirm python git tar curl
+              ;;
+            debian | ubuntu)
+              apt-get update
+              apt-get install -y --no-install-recommends python3 git tar ca-certificates curl
+              ;;
+            fedora)
+              dnf -y install python3 git tar curl
+              ;;
+            void)
+              xbps-install -Syu xbps
+              xbps-install -yu
+              xbps-install -y bash python3 git tar curl
+              ;;
+          esac
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Sign and index packages
+        env:
+          TARGET: ${{ matrix.target }}
+          GH_TOKEN: ${{ github.token }}
+          FREPO_GPG_KEY: ${{ secrets.FREPO_GPG_KEY }}
+          FREPO_XBPS_KEY: ${{ secrets.FREPO_XBPS_KEY }}
+        run: bash scripts/index.sh "$TARGET" site
+      - name: Upload repository subtree
+        uses: actions/upload-artifact@v4
+        with:
+          name: index-${{ matrix.target }}
+          path: site
+          if-no-files-found: error
+
+  deploy:
+    name: deploy site
+    needs: index
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      FREPO_BASE_URL: ${{ vars.FREPO_BASE_URL }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: Download repository subtrees
+        uses: actions/download-artifact@v4
+        with:
+          pattern: index-*
+          path: site
+          merge-multiple: true
+      - name: Build Nix cache
+        env:
+          FREPO_NIX_KEY: ${{ secrets.FREPO_NIX_KEY }}
+        run: bash scripts/nixcache.sh site
+      - name: Write landing page and public key
+        env:
+          FREPO_GPG_KEY: ${{ secrets.FREPO_GPG_KEY }}
+        run: python3 -I scripts/frepo.py site site
+      - name: Check site size
+        run: test "$(du -sb site | cut -f1)" -lt 900000000 || { echo "site over 900 MB"; exit 1; }
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

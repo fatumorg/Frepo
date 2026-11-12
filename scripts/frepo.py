@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 import argparse
 import hashlib
+import html
 import json
 import os
 import re
 import shlex
 import shutil
 import subprocess
+import tempfile
 import urllib.request
 from email.utils import formatdate
 from pathlib import Path
 
 TARGETS = ("arch", "debian", "ubuntu", "fedora", "void")
-BASE_URL = os.environ.get("FREPO_BASE_URL", "https://fatumorg.github.io/Frepo")
+BASE_URL = os.environ.get("FREPO_BASE_URL") or "https://fatumorg.github.io/Frepo"
 
+GPG_FPR = "71F436240F5DECB80B527254129B59851248FCFA"
+NIX_KEY = "frepo-1:gKWuz++daZePxuk4SUjIByC40ua1WCwAdU7zJPuRIKI="
 MAINTAINER = "naxce <naxcehelltea@gmail.com>"
 IMAGES = {
     "arch": "archlinux:latest",
@@ -212,7 +216,11 @@ def release_assets(key):
 
 
 def http_json(url):
-    with urllib.request.urlopen(url) as r:
+    req = urllib.request.Request(url)
+    token = os.environ.get("GH_TOKEN")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    with urllib.request.urlopen(req) as r:
         return json.load(r)
 
 
@@ -229,9 +237,12 @@ def fetch_dep(key, target, outdir, repo=None, get=http_json, save=http_save):
         raise SystemExit(f"release {key} has no {target} asset")
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
-    for a in found:
-        save(a["browser_download_url"], outdir / a["name"][len(prefix):])
-    return [a["name"][len(prefix):] for a in found]
+    names = [a["name"][len(prefix):] for a in found]
+    if target in ("debian", "ubuntu", "fedora"):
+        names = [re.sub(r"\.beta(\d)", r"~beta\1", n) for n in names]
+    for a, n in zip(found, names):
+        save(a["browser_download_url"], outdir / n)
+    return names
 
 
 def matrix(root=ROOT, missing=False, assets=release_assets, stage=None):
@@ -258,6 +269,108 @@ def matrix(root=ROOT, missing=False, assets=release_assets, stage=None):
     return {"include": out}
 
 
+def select(target, root=ROOT):
+    rows = []
+    for name, d in package_dirs(root).items():
+        data = json.loads((d / "version.json").read_text())
+        if not buildable(d, data, name, target):
+            continue
+        for channel in ("stable", "beta"):
+            ent = resolve(data, channel)
+            if ent:
+                rows.append((channel, artifact_key(name, ent)))
+    return rows
+
+
+def snippets(base):
+    codename = "$(. /etc/os-release; echo $VERSION_CODENAME)"
+    out = []
+
+    def add(title, text):
+        out.append(f"<h3>{html.escape(title)}</h3>\n<pre>{html.escape(text.strip())}</pre>")
+
+    add("Arch", f"""
+curl -fsS {base}/frepo.asc | sudo pacman-key --add -
+sudo pacman-key --lsign-key {GPG_FPR}
+append to /etc/pacman.conf, use [frepo-beta] for beta builds:
+[frepo]
+Server = {base}/arch/$repo/$arch
+sudo pacman -Syu fatest
+""")
+    add("Debian", f"""
+sudo install -d /etc/apt/keyrings
+sudo curl -fsSo /etc/apt/keyrings/frepo.asc {base}/frepo.asc
+echo "deb [signed-by=/etc/apt/keyrings/frepo.asc] {base}/deb trixie main" | sudo tee /etc/apt/sources.list.d/frepo.list
+beta builds: suite trixie-beta instead of trixie
+sudo apt update && sudo apt install fatest
+""")
+    add("Ubuntu", f"""
+sudo install -d /etc/apt/keyrings
+sudo curl -fsSo /etc/apt/keyrings/frepo.asc {base}/frepo.asc
+echo "deb [signed-by=/etc/apt/keyrings/frepo.asc] {base}/deb {codename} main" | sudo tee /etc/apt/sources.list.d/frepo.list
+beta builds: suite {codename}-beta instead
+sudo apt update && sudo apt install fatest
+""")
+    add("Fedora", f"""
+sudo tee /etc/yum.repos.d/frepo.repo <<'REPO'
+[frepo]
+name=frepo
+baseurl={base}/rpm/fedora/$releasever/frepo/x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey={base}/frepo.asc
+REPO
+beta builds: section [frepo-beta] with baseurl {base}/rpm/fedora/$releasever/frepo-beta/x86_64
+sudo dnf install fatest
+""")
+    add("Void", f"""
+echo "repository={base}/void/current" | sudo tee /etc/xbps.d/frepo.conf
+beta builds: repository={base}/void/beta
+sudo xbps-install -S fatest
+""")
+    add("Nix", f"""
+nix.settings.extra-substituters = [ "{base}/nix" ];
+nix.settings.extra-trusted-public-keys = [ "{NIX_KEY}" ];
+nix run github:fatumorg/Frepo#fatest
+beta builds: github:fatumorg/Frepo#fatest-beta
+""")
+    return "\n".join(out)
+
+
+def site(sitedir, base=BASE_URL):
+    sitedir = Path(sitedir)
+    sitedir.mkdir(parents=True, exist_ok=True)
+    page = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frepo</title>
+<style>body{{font-family:sans-serif;max-width:52rem;margin:2rem auto;padding:0 1rem}}pre{{overflow-x:auto;background:#eee;padding:.75rem}}@media(prefers-color-scheme:dark){{body{{background:#111;color:#ddd}}pre{{background:#222}}}}</style>
+</head>
+<body>
+<h1>Frepo</h1>
+<p>Packages by naxce for Arch, Debian, Ubuntu, Fedora, Void and Nix. Signing key fingerprint: {GPG_FPR}</p>
+<h2>Beta</h2>
+<p>Beta builds are the version being worked on right now and may have bugs. Enable either frepo or frepo-beta, never both.</p>
+<h2>Install</h2>
+{snippets(base)}
+</body>
+</html>
+"""
+    (sitedir / "index.html").write_text(page)
+    key = os.environ.get("FREPO_GPG_KEY")
+    if key:
+        with tempfile.TemporaryDirectory() as home:
+            env = {**os.environ, "GNUPGHOME": home}
+            subprocess.run(["gpg", "--batch", "--quiet", "--import"], input=key, text=True, env=env, check=True)
+            pub = subprocess.run(["gpg", "--armor", "--export", GPG_FPR], capture_output=True, text=True, env=env, check=True)
+        if not pub.stdout:
+            raise SystemExit("gpg exported no public key")
+        (sitedir / "frepo.asc").write_text(pub.stdout)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="frepo")
     sub = parser.add_subparsers(dest="command")
@@ -276,6 +389,10 @@ def main(argv=None):
     f.add_argument("key")
     f.add_argument("target", choices=TARGETS)
     f.add_argument("outdir")
+    sl = sub.add_parser("select")
+    sl.add_argument("target", choices=TARGETS)
+    st = sub.add_parser("site")
+    st.add_argument("sitedir")
     args = parser.parse_args(argv)
     if args.command == "bump":
         print("\n".join(bump(args.package, args.tag)))
@@ -285,6 +402,10 @@ def main(argv=None):
         print(json.dumps(matrix(missing=args.missing, stage=args.stage)))
     elif args.command == "fetch-dep":
         fetch_dep(args.key, args.target, args.outdir)
+    elif args.command == "select":
+        print("\n".join(f"{c} {k}" for c, k in select(args.target)))
+    elif args.command == "site":
+        site(args.sitedir)
     else:
         parser.print_help()
     return 0

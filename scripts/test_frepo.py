@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import shlex
 
-from frepo import ROOT, TARGETS, apply_bump, artifact_key, bump, fetch_dep, hash_path, matrix, parse_tag, render, resolve, target_version
+from frepo import ROOT, TARGETS, apply_bump, artifact_key, bump, fetch_dep, hash_path, matrix, parse_tag, render, resolve, select, site, target_version
 
 
 class Rules(unittest.TestCase):
@@ -195,6 +195,39 @@ class Matrix(unittest.TestCase):
         alpha = {r["target"] for r in rows if r["pkg"] == "alpha"}
         self.assertEqual(alpha, {"debian", "ubuntu", "fedora"})
         self.assertEqual(len([r for r in rows if r["pkg"] == "bravo"]), 8)
+
+
+class Select(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        for name, extra in (("alpha", {}), ("bravo", {"skip": ["debian"]})):
+            d = self.root / "pkgs" / "by-name" / name[:2] / name
+            d.mkdir(parents=True)
+            (d / "version.json").write_text(json.dumps({"repo": "o/x", "smoke": "s", "stable": entry("1.0.0"), "beta": None, **extra}))
+            for recipe in ("PKGBUILD", "template", name + ".spec", "debian"):
+                (d / recipe).write_text("")
+
+    def test_select_lists_both_channels(self):
+        rows = select("arch", self.root)
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(rows[0][0], "stable")
+        self.assertEqual(rows[0][1], rows[1][1])
+        self.assertEqual({c for c, _ in rows}, {"stable", "beta"})
+
+    def test_select_leaves_out_skipped(self):
+        self.assertEqual(len(select("debian", self.root)), 2)
+
+
+class Site(unittest.TestCase):
+    def test_site_has_every_target_snippet(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            site(tmp, "https://example.org/r")
+            page = (Path(tmp) / "index.html").read_text()
+        for part in ("/arch/$repo/$arch", "/deb", "/rpm/fedora/$releasever/frepo/x86_64", "/void/current", "/nix", "frepo-beta", "https://example.org/r/frepo.asc"):
+            self.assertIn(part, page)
+        self.assertNotIn("<script", page)
 
 
 class Recipes(unittest.TestCase):
