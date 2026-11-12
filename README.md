@@ -14,6 +14,60 @@ Frepo is a package repo for Linux projects written by naxce. It works next to th
 
 ## Install
 
+Add the repo, then install packages with the package manager of your distro. The signing key fingerprint is 71F436240F5DECB80B527254129B59851248FCFA.
+
+### Arch
+
+```sh
+curl -fsS https://fatumorg.github.io/Frepo/frepo.asc | sudo pacman-key --add -
+sudo pacman-key --lsign-key 71F436240F5DECB80B527254129B59851248FCFA
+printf '[frepo]\nServer = https://fatumorg.github.io/Frepo/arch/$repo/$arch\n' | sudo tee -a /etc/pacman.conf
+sudo pacman -Syu fatest
+```
+
+### Debian
+
+```sh
+sudo install -d /etc/apt/keyrings
+sudo curl -fsSo /etc/apt/keyrings/frepo.asc https://fatumorg.github.io/Frepo/frepo.asc
+echo "deb [signed-by=/etc/apt/keyrings/frepo.asc] https://fatumorg.github.io/Frepo/deb trixie main" | sudo tee /etc/apt/sources.list.d/frepo.list
+sudo apt update
+sudo apt install fatest
+```
+
+### Ubuntu
+
+```sh
+sudo install -d /etc/apt/keyrings
+sudo curl -fsSo /etc/apt/keyrings/frepo.asc https://fatumorg.github.io/Frepo/frepo.asc
+echo "deb [signed-by=/etc/apt/keyrings/frepo.asc] https://fatumorg.github.io/Frepo/deb $(. /etc/os-release; echo $VERSION_CODENAME) main" | sudo tee /etc/apt/sources.list.d/frepo.list
+sudo apt update
+sudo apt install fatest
+```
+
+### Fedora
+
+```sh
+sudo tee /etc/yum.repos.d/frepo.repo <<'REPO'
+[frepo]
+name=frepo
+baseurl=https://fatumorg.github.io/Frepo/rpm/fedora/$releasever/frepo/x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://fatumorg.github.io/Frepo/frepo.asc
+REPO
+sudo dnf install fatest
+```
+
+### Void
+
+```sh
+sudo mkdir -p /etc/xbps.d
+echo "repository=https://fatumorg.github.io/Frepo/void/current" | sudo tee /etc/xbps.d/frepo.conf
+sudo xbps-install -S fatest
+```
+
 ### Nix
 
 Try a package without a flake input:
@@ -49,6 +103,70 @@ nixpkgs.overlays = [ inputs.frepo.overlays.beta ];
 ```
 
 Sylvaris also ships `nixosModules.sylvaris` and `homeManagerModules.sylvaris`.
+
+## Beta
+
+Beta builds are the version being worked on right now; they may have bugs. Enable one or the other: the stable repo (`frepo`) or the beta repo (`frepo-beta`), never both. When a package has no beta, the beta repo carries its stable build.
+
+### Arch
+
+```sh
+curl -fsS https://fatumorg.github.io/Frepo/frepo.asc | sudo pacman-key --add -
+sudo pacman-key --lsign-key 71F436240F5DECB80B527254129B59851248FCFA
+printf '[frepo-beta]\nServer = https://fatumorg.github.io/Frepo/arch/$repo/$arch\n' | sudo tee -a /etc/pacman.conf
+sudo pacman -Syu fatest
+```
+
+### Debian
+
+```sh
+sudo install -d /etc/apt/keyrings
+sudo curl -fsSo /etc/apt/keyrings/frepo.asc https://fatumorg.github.io/Frepo/frepo.asc
+echo "deb [signed-by=/etc/apt/keyrings/frepo.asc] https://fatumorg.github.io/Frepo/deb trixie-beta main" | sudo tee /etc/apt/sources.list.d/frepo.list
+sudo apt update
+sudo apt install fatest
+```
+
+### Ubuntu
+
+```sh
+sudo install -d /etc/apt/keyrings
+sudo curl -fsSo /etc/apt/keyrings/frepo.asc https://fatumorg.github.io/Frepo/frepo.asc
+echo "deb [signed-by=/etc/apt/keyrings/frepo.asc] https://fatumorg.github.io/Frepo/deb $(. /etc/os-release; echo $VERSION_CODENAME)-beta main" | sudo tee /etc/apt/sources.list.d/frepo.list
+sudo apt update
+sudo apt install fatest
+```
+
+### Fedora
+
+```sh
+sudo tee /etc/yum.repos.d/frepo-beta.repo <<'REPO'
+[frepo-beta]
+name=frepo-beta
+baseurl=https://fatumorg.github.io/Frepo/rpm/fedora/$releasever/frepo-beta/x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://fatumorg.github.io/Frepo/frepo.asc
+REPO
+sudo dnf install fatest
+```
+
+### Void
+
+```sh
+sudo mkdir -p /etc/xbps.d
+echo "repository=https://fatumorg.github.io/Frepo/void/beta" | sudo tee /etc/xbps.d/frepo.conf
+sudo xbps-install -S fatest
+```
+
+### Nix
+
+```sh
+nix profile install github:fatumorg/Frepo#sylvaris-beta
+```
+
+Beta overlays are described under Install, Nix.
 
 ## Unavailable
 
