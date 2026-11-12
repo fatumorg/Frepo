@@ -1,0 +1,22 @@
+pkgname=codedesk
+version=@pkgver@
+revision=1
+build_style=cargo
+hostmakedepends="pkg-config clang libclang"
+makedepends="libwebkit2gtk41-devel gtk+3-devel libsoup3-devel openssl-devel libxkbcommon-devel libxcb-devel libX11-devel libXtst-devel libXi-devel libXrandr-devel wayland-devel dbus-devel pipewire-devel libgbm-devel libdrm-devel"
+depends="libwebkit2gtk41 gtk+3 glib-networking"
+make_check=no
+short_desc="Codedesk: a desktop workspace for Claude Code"
+maintainer="@maintainer@"
+license="MIT"
+homepage="https://github.com/fatumorg/codedesk"
+distfiles="@url@"
+checksum=@sha256@
+wrksrc="@srcdir@"
+
+post_install() {
+	vinstall ui/icons/icon.svg 644 usr/share/icons/hicolor/scalable/apps codedesk.svg
+	vinstall ui/icons/icon.png 644 usr/share/icons/hicolor/512x512/apps codedesk.png
+	printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Name=Codedesk' 'Exec=codedesk %U' 'Icon=codedesk' 'Categories=Development;' 'StartupWMClass=codedesk' 'Comment=Desktop workspace for Claude Code' > ${wrksrc}/codedesk.desktop
+	vinstall ${wrksrc}/codedesk.desktop 644 usr/share/applications
+}

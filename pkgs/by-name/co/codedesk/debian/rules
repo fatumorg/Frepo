@@ -1,0 +1,24 @@
+#!/usr/bin/make -f
+
+export RUSTUP_HOME=$(CURDIR)/.rustup
+export CARGO_HOME=$(CURDIR)/.cargo
+export PATH:=$(CURDIR)/.cargo/bin:$(PATH)
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.92.0 --no-modify-path
+	cargo build --release --locked
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+	install -Dm755 target/release/codedesk debian/codedesk/usr/bin/codedesk
+	install -Dm644 ui/icons/icon.svg debian/codedesk/usr/share/icons/hicolor/scalable/apps/codedesk.svg
+	install -Dm644 ui/icons/icon.png debian/codedesk/usr/share/icons/hicolor/512x512/apps/codedesk.png
+	install -Dm644 debian/codedesk.desktop debian/codedesk/usr/share/applications/codedesk.desktop
+
+override_dh_strip:
+
+override_dh_dwz:

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Codedesk
+Exec=codedesk %U
+Icon=codedesk
+Categories=Development;
+StartupWMClass=codedesk
+Comment=Desktop workspace for Claude Code

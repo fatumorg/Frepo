@@ -1,0 +1,26 @@
+pkgname=codedesk
+pkgver=@pkgver@
+pkgrel=1
+pkgdesc="Codedesk: a desktop workspace for Claude Code"
+arch=('x86_64')
+url="https://github.com/fatumorg/codedesk"
+license=('MIT')
+options=('!debug' '!strip' '!lto')
+depends=('webkit2gtk-4.1' 'gtk3' 'libsoup3' 'glib-networking' 'openssl' 'libxkbcommon' 'libxcb' 'libx11' 'libxtst' 'libxi' 'libxrandr' 'wayland' 'dbus' 'libpipewire' 'mesa' 'libdrm')
+makedepends=('cargo' 'clang' 'pkgconf')
+source=("$pkgname-$pkgver.tar.gz::@url@")
+sha256sums=('@sha256@')
+
+build() {
+  cd "$srcdir/@srcdir@"
+  cargo build --release --locked
+}
+
+package() {
+  cd "$srcdir/@srcdir@"
+  install -Dm755 target/release/codedesk "$pkgdir/usr/bin/codedesk"
+  install -Dm644 ui/icons/icon.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/codedesk.svg"
+  install -Dm644 ui/icons/icon.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/codedesk.png"
+  install -d "$pkgdir/usr/share/applications"
+  printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Name=Codedesk' 'Exec=codedesk %U' 'Icon=codedesk' 'Categories=Development;' 'StartupWMClass=codedesk' 'Comment=Desktop workspace for Claude Code' > "$pkgdir/usr/share/applications/codedesk.desktop"
+}
