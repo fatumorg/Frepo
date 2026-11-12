@@ -25,6 +25,21 @@ for name in $names; do
 done
 
 mkdir -p "$site/nix"
-nix copy --to "file://$site/nix?compression=zstd&secret-key=$keys/secret" "${outs[@]}"
+ours=()
+stubs=()
+while read -r p; do
+    h=$(basename "$p")
+    h=${h%%-*}
+    if curl -fsS "https://cache.nixos.org/$h.narinfo" -o "$site/nix/$h.narinfo" 2>/dev/null; then
+        stubs+=("$site/nix/$h.narinfo")
+    else
+        rm -f "$site/nix/$h.narinfo"
+        ours+=("$p")
+    fi
+done < <(nix path-info -r "${outs[@]}")
+if [ ${#ours[@]} -gt 0 ]; then
+    nix copy --no-recursive --to "file://$site/nix?compression=zstd&secret-key=$keys/secret" "${ours[@]}"
+fi
+rm -f "${stubs[@]}"
 
 printf 'StoreDir: /nix/store\nWantMassQuery: 1\nPriority: 50\n' > "$site/nix/nix-cache-info"
