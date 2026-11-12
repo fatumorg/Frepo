@@ -1,7 +1,6 @@
 pkgname=sylvaris
 version=@pkgver@
 revision=1
-archs=noarch
 depends="sylstack qt6-declarative qt6-wayland qt6-svg qt6-multimedia qt6-imageformats layer-shell-qt polkit-qt6 kf6-syntax-highlighting font-inter font-ibm-plex-ttf nerd-fonts-ttf bash coreutils procps-ng util-linux pipewire pulseaudio-utils python3 python3-cryptography python3-gobject libnotify NetworkManager wlr-randr wayvnc openssl iproute2 brightnessctl ddcutil wlsunset curl wl-clipboard grim slurp wf-recorder ffmpeg bsdtar wtype glib git cava udisks2"
 short_desc="Modular desktop shell for Hyprland, niri and sway"
 maintainer="@maintainer@"
