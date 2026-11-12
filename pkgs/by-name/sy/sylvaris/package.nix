@@ -1,3 +1,3 @@
-{ callPackage, sylstack, frepo }:
+{ callPackage, sylstack, frepo, sylvarisParts ? { } }:
 
-callPackage "${frepo.src}/nix/package.nix" { inherit sylstack; commit = frepo.tag; }
+callPackage "${frepo.src}/nix/package.nix" { inherit sylstack sylvarisParts; commit = frepo.tag; }
