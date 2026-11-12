@@ -96,7 +96,7 @@ build_void() {
     cd "$work"
     sudo -u builder ./xbps-src binary-bootstrap
     sudo -u builder ./xbps-src pkg "$PKG"
-    cp hostdir/binpkgs/*.xbps "$out/dist/"
+    cp hostdir/binpkgs/"$PKG"-*.xbps "$out/dist/"
 }
 
 fetch_source
