@@ -1,0 +1,20 @@
+pkgname=archon
+version=@pkgver@
+revision=1
+build_style=cmake
+configure_args="-DCMAKE_BUILD_TYPE=Release"
+hostmakedepends="pkg-config qt6-base ninja"
+makedepends="qt6-base-devel qt6-svg-devel zlib-devel openssl-devel libzip-devel pugixml-devel"
+depends="qt6-svg"
+make_check=no
+short_desc="Linux-native archive browser and mod tool for GTA V"
+maintainer="@maintainer@"
+license="MIT"
+homepage="https://github.com/fatumorg/archon"
+distfiles="@url@"
+checksum=@sha256@
+wrksrc="@srcdir@"
+
+post_install() {
+	vlicense LICENSE
+}

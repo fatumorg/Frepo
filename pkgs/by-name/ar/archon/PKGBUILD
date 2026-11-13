@@ -1,0 +1,23 @@
+pkgname=archon
+pkgver=@pkgver@
+pkgrel=1
+pkgdesc="Linux-native archive browser and mod tool for GTA V"
+arch=('x86_64')
+url="https://github.com/fatumorg/archon"
+license=('MIT')
+options=('!debug')
+depends=('qt6-base' 'qt6-svg' 'zlib' 'openssl' 'libzip' 'pugixml')
+makedepends=('cmake' 'ninja' 'pkgconf')
+optdepends=('protontricks: Proton prefix setup')
+source=("$pkgname-$pkgver.tar.gz::@url@")
+sha256sums=('@sha256@')
+
+build() {
+  cmake -S "$srcdir/@srcdir@" -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+  install -Dm644 "$srcdir/@srcdir@/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

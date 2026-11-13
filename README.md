@@ -11,6 +11,7 @@ Frepo is a package repo for Linux projects written by naxce. It works next to th
 | sylstack | 1.0.1 | Small Qt Quick runtime for Wayland desktop shells, made for Sylvaris |
 | sylvaris | 1.6.0 | Modular desktop shell for Hyprland, niri and sway, built on SylStack |
 | codedesk | — | Desktop workspace for Claude Code |
+| archon | — | Linux-native archive browser and mod tool for GTA V |
 
 ## Install
 

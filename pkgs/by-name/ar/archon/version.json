@@ -1,0 +1,11 @@
+{
+  "repo": "fatumorg/archon",
+  "smoke": "ldd /usr/bin/archon",
+  "stable": {
+    "tag": "v0.1.0",
+    "version": "0.1.0",
+    "hash": "sha256-9DY4L+wfsYdM6m8qYPOHJ6fXV3h93BG7oStMVUdiR1E=",
+    "sha256": "9d0e1f77e89a4d960a3590ef1d4523f6d8fd5aa70c0a116ba1335230d9424d3b"
+  },
+  "beta": null
+}

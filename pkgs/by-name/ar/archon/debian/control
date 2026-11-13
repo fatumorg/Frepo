@@ -1,0 +1,18 @@
+Source: archon
+Section: games
+Priority: optional
+Maintainer: @maintainer@
+Build-Depends: debhelper-compat (= 13), cmake, ninja-build, pkg-config, g++, qt6-base-dev, libqt6opengl6-dev, qt6-svg-dev, libgl-dev, zlib1g-dev, libssl-dev, libzip-dev, libpugixml-dev
+Standards-Version: 4.7.0
+Homepage: https://github.com/fatumorg/archon
+Rules-Requires-Root: no
+
+Package: archon
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Suggests: protontricks
+Description: Linux-native archive browser and mod tool for GTA V
+ ARCHON browses and edits the archives of GTA V (Legacy and Enhanced) on
+ Linux: RPF archives, texture dictionaries, models, metadata, OIV packages,
+ ASI plugins and the Proton prefix, with every change backed up and
+ reversible.
