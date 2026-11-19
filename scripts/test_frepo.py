@@ -126,7 +126,8 @@ class Render(unittest.TestCase):
                 self.assertRegex(env["SHA256"], r"^[0-9a-f]{64}$")
 
     def test_render_needs_and_placeholders_for_stack(self):
-        for name, needs in (("sylstack", ""), ("sylvaris", "sylstack-1.0.1-7a0cfc8e")):
+        stack = json.loads((ROOT / "pkgs/by-name/sy/sylstack/version.json").read_text())["stable"]
+        for name, needs in (("sylstack", ""), ("sylvaris", artifact_key("sylstack", stack))):
             for target in ("arch", "ubuntu", "fedora", "void"):
                 with self.subTest(name=name, target=target), tempfile.TemporaryDirectory() as tmp:
                     render(name, "stable", target, Path(tmp))
