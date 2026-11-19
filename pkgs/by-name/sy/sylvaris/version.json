@@ -6,10 +6,10 @@
   ],
   "smoke": "sylvaris --version",
   "stable": {
-    "tag": "v1.7.0",
-    "version": "1.7.0",
-    "hash": "sha256-txeUXVsNHQ3jG3dcCO2m207pIVDHiGneirR50lzZaTM=",
-    "sha256": "11feb9ce96fb12a6fff4f7da9d649818ca56ae1fd6f333b495caa247fd5f31f5"
+    "tag": "v1.7.1",
+    "version": "1.7.1",
+    "hash": "sha256-Hj1REHSG36NLR+Rc541nAo2wfUJEDU4Tr5tVWdTSXW0=",
+    "sha256": "0695502370d584bfe4cb5dde91e8d4c4a9a8a852bf22bff6182eca84ff7f8fb0"
   },
   "beta": null
 }
