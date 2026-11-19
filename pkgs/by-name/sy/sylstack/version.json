@@ -7,11 +7,11 @@
   "subdir": "stack",
   "smoke": "sylstack --version",
   "stable": {
-    "tag": "v1.6.0",
-    "version": "1.0.1",
-    "hash": "sha256-GzatFlO2QeEJ7rAzl+9+VNkIsOz1ezO6FY9ava9Pbwo=",
-    "sha256": "7a0cfc8eba1693a0919b37196d735dcb312156ff2ff621f52911ce34717a4b74",
-    "subhash": "sha256-QRwvaTLk3aRRUFH9OLruoFkKqF2m2pbSMtQDnw4rI7Y="
+    "tag": "v1.8.0",
+    "version": "1.1.0",
+    "hash": "sha256-nl6HupUcU5k82mVFidG8w3w3I5/42rNT6nMTG7b1zrc=",
+    "sha256": "74e22e520d5dae5de8bebb5fa4e5045f39e94fb51b4d291978094cfc8ea6c17f",
+    "subhash": "sha256-ht2mzRupNuwDD1yEsLg5+FQXokdz9zmDc8Zw4V8+3ZE="
   },
   "beta": null
 }
